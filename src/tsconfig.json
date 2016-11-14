@@ -1,0 +1,13 @@
+{
+    "compilerOptions": {
+        "target": "es5",
+        "lib": ["es6", "dom"],
+        "sourceMap": true,
+        "jsx": "react",
+        "strictNullChecks": true,
+        "noImplicitUseStrict": true,
+        "noImplicitAny": false,
+        "moduleResolution": "node",
+        "module": "commonjs"    
+    }
+}
