@@ -7,8 +7,8 @@ export function cycleGet<T>(array:T[], index: number):T {
 
 
 export function rotate<T>(arr: T[], offset: number) {
-    let front:T[] = arr.slice(offset);
-    let back:T[] = arr.slice(0, offset);
+    let front:T[] = arr.slice(offset % arr.length);
+    let back:T[] = arr.slice(0, offset % arr.length);
 
     return front.concat(back);
 }

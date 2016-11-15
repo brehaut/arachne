@@ -4,61 +4,30 @@ import { rotate } from './array';
 // without having to take into account whether we want to refer to them as
 // flats or sharps.
 export type Note = "GA" | "A" | "AB" | "B" | "C" | "CD" | "D" | "DE" | "E" | "F" | "FG" | "G";
-export type Scale = Note[];
-// The Shift is used to determine if a scale is described in terms of flats or sharps 
-export enum Shift { Flat, Sharp };
+export type WhiteNote =  "A" | "B" | "C" | "D" | "E" | "F" | "G";
+export type BlackNote = "GA" | "AB" | "CD" | "DE" | "FG";
 
 
-const twelveTones:Note[] = ["A", "AB", "B", "C", "CD", "D", "DE", "E", "F", "FG", "G", "GA"];
-
-enum Interval {
-    Semitone = 1, 
-    Tone = 2,
-}
-
-export type ScaleSeries = Interval[]; 
-
-export namespace scaleSeries {
-    export const major:ScaleSeries = [Interval.Tone, Interval.Tone, Interval.Semitone, Interval.Tone, Interval.Tone, Interval.Tone, Interval.Semitone];
-
-    export const ionian:ScaleSeries = major;
-    export const dorian:ScaleSeries = rotate(major, 1);
-    export const phrygian:ScaleSeries = rotate(major, 2);
-    export const lydian:ScaleSeries = rotate(major, 3);
-    export const mixolydian:ScaleSeries = rotate(major, 4);
-    export const aeolian:ScaleSeries = rotate(major, 5);
-    export const locrian:ScaleSeries = rotate(major, 6);
-
-    export const modes:ScaleSeries[] = [
-        locrian,
-        ionian,
-        dorian,
-        phrygian,
-        lydian,
-        mixolydian,
-        aeolian,
-        locrian
-    ];
-
-    export const naturalMinor:ScaleSeries = aeolian;
-}
-
-
-export function chromatic(root: Note):Scale {
-    const offset = twelveTones.indexOf(root);
-    return rotate(twelveTones, offset);
-}
-
-
-export function scale(root: Note, series: ScaleSeries) {
-    const notes = chromatic(root);
-    const scale:Scale = [];
-
-    let idx = 0;
-    for (let i = 0, len = series.length; i < len; i++) {
-        idx += series[i];
-        scale.push(notes[idx]);
+// A black note is any note that would be represented by a black key on a piano
+export function isBlack(n: Note): n is BlackNote {
+    switch(n) {
+        case "GA": return true;
+        case "AB": return true;
+        case "CD": return true;
+        case "DE": return true;
+        case "FG": return true;
+        default: return false;
     }
-
-    return scale;
 }
+
+// A black note is any note that would be represented by a white key on a piano
+export function isWhite(n: Note): n is WhiteNote {
+    return !isBlack(n);
+}
+
+
+export const twelveTones:Note[] = ["A", "AB", "B", "C", "CD", "D", "DE", "E", "F", "FG", "G", "GA"];
+
+export const toneIndex:{[index:string]: number} = {}
+twelveTones.forEach((tone, idx) => toneIndex[tone] = idx);
+

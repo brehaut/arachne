@@ -8,6 +8,7 @@ var manifest = require("gulp-manifest");
 var rm = require('gulp-rimraf');
 var path = require('path');
 var webpack = require('webpack-stream');
+var runSequence = require('run-sequence');
 
 const BUILD_PATH = "build";
 const DIST_PATH = "dist";
@@ -34,8 +35,12 @@ function buildTypescript(sources) {
 }
 
 
+gulp.task('clean', [], () => 
+    gulp.src(["build/*", "dist/*"]).pipe(rm())
+);
+
 gulp.task('tsc', [], () => {
-    buildTypescript('src/**/*.ts');
+    return buildTypescript('src/**/*.ts');
 })
 
 gulp.task('bundle', [], () => {
@@ -50,14 +55,15 @@ gulp.task('bundle', [], () => {
         .pipe(gulp.dest(DIST_PATH));
 })
 
-gulp.task('default', ['tsc', 'bundle']);
+gulp.task('default', (cb) => {
+    runSequence('clean',
+                'tsc',
+                'bundle',
+                cb);
+});
 
 
 
-gulp.task('watch', [], () => {
-    gulp.watch('src/**/*.ts', (event) => {
-        if (event.type === 'added' || event.type === 'changed') {
-            buildTypescript([event.path]);
-        }    
-    });
+gulp.task('watch', [], cb => {
+    runSequence('tsc', 'bundle', cb);
 });

@@ -18,6 +18,7 @@
     "lodash": "^4.16.4",
     "merge2": "^1.0.2",
     "mocha": "^3.1.2",
+    "run-sequence": "^1.2.2",
     "typescript": "2.0.6"
   },
   "dependencies": {
