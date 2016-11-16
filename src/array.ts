@@ -14,3 +14,13 @@ export function rotate<T>(arr: T[], offset: number) {
 
     return front.concat(back);
 }
+
+
+export function distribution<T, TKey>(arr: T[], key:(v:T) => TKey) {
+    const dist = new Map();
+    arr.forEach(v => {
+        const k = key(v); 
+        dist.set(k, (dist.get(k) || 0) + 1);
+    });
+    return dist;
+}

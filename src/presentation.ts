@@ -1,5 +1,7 @@
 import { Note, isWhite, WhiteNote, relativeNote } from './notes';
 import { Scale } from './scales';
+import { distribution } from './array'; 
+
 
 // DisplayNotes are all the possible human readible versions of the above notes.     
 // Converting between Note and DisplayNote requires knowing which direction a given
@@ -73,18 +75,6 @@ export function getScaleShift(scale: Scale): Shift {
 }
 
 
-export function spellScale(scale: Scale): SpelledScale {
-    // Naive implementaion of spellScale.
-    //
-    // A better algorithm would produce all the spellings for a given scale and from there
-    // figure out the cost of each spelling and return the lowest cost ones.
-    const shift = getScaleShift(scale);
-    const spelledScale = scale.map(n => noteToDisplay(n, shift));
-
-    return spelledScale;
-}
-
-
 
 
 function noteSpellings(note: Note, shift: Shift): DisplayNote[] {
@@ -133,9 +123,9 @@ function priceScaleSpelling(scale: SpelledScale): number {
         const letter = note[0];
         const shift = note[1];
 
-        if (shift === "#" && (letter === "B" || letter === "E")
-         || shift === "b" && (letter === "C" || letter === "F")) {
-            sum += 1.5;
+        if ((shift === "#" && (letter === "B" || letter === "E"))
+         || (shift === "b" && (letter === "C" || letter === "F"))) {
+            sum += 2;
         }
         else {
             sum += 1;
@@ -146,22 +136,34 @@ function priceScaleSpelling(scale: SpelledScale): number {
 }
 
 
-export function spellScale2(scale: Scale): SpelledScale {
+
+
+
+export function spellScale(scale: Scale): SpelledScale[] {
     const shifts = [Shift.Flat, Shift.Sharp];
 
     const spellingsByShift = shifts.map(shift => scale.map(note => noteSpellings(note, shift))).map(combine);
-    const spellings = Array.prototype.concat.apply([], spellingsByShift);
+    const spellings = Array.prototype.concat.apply([], spellingsByShift); // flatten
+    
 
-    let cheapest = [];
+    let cheapest = [[]];
     let minCost = Number.MAX_SAFE_INTEGER;
 
-    spellings.forEach(spelling => {
+    spellings
+        .filter(scale => {
+            const dist = distribution(scale, n => n[0]);
+            return Array.from(dist.values()).reduce((acc, v) => acc && v === 1, true);
+        })
+        .forEach(spelling => {
         const cost = priceScaleSpelling(spelling);
         if (cost < minCost) {
             minCost = cost;
-            cheapest = spelling;
+            cheapest = [spelling];
+        }
+        else if (cost === minCost) {
+            cheapest.push(spelling);
         }
     })
 
-    return cheapest as SpelledScale;
+    return cheapest as SpelledScale[];
 }
