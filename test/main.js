@@ -27,11 +27,9 @@ notes.twelveTones.forEach(n => {
      ].forEach((p) => {
         const series = p[0];
         const label = p[1];
-        const scale = scales.scale(n, series);
-        const shift = presentation.getScaleShift(scale);
-        const display = (n) => presentation.noteToDisplay(n, shift); 
+        const scale = presentation.spellScale(scales.scale(n, series));        
         
-        console.log(`${pad(display(n))} ${label}`, scale.map(display));
+        console.log(`${pad(scale[0])} ${label}`, scale);
     });
 
 });
@@ -45,9 +43,7 @@ const diatonicSeries = jsc.elements(scales.scaleSeries.modes.slice(1));
 
 describe("diatonic scales", () => {
   property("Scale presentation uses each letter only once", diatonicSeries, allNotes, (series, rootNote) => {
-    const scale = scales.scale(rootNote, series);
-    const shift = presentation.getScaleShift(scale);
-    const spelledScale = scale.map(n => presentation.noteToDisplay(n, shift));
+    const spelledScale = presentation.spellScale(scales.scale(rootNote, series));
 
     const lettersInScale = spelledScale.map(n => n[0]);
 

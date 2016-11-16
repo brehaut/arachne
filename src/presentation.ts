@@ -5,6 +5,7 @@ import { Scale } from './scales';
 // Converting between Note and DisplayNote requires knowing which direction a given
 // key choses for naming  
 export type DisplayNote = "Ab" | "A" | "A#" | "Bb" | "B" | "C" | "C#" | "Db" | "D" | "D#" | "Eb" | "E" | "F" | "F#" | "Gb" | "G" | "G#";
+export type SpelledScale = DisplayNote[];
 
 // The Shift is used to determine if a scale is described in terms of flats or sharps 
 export enum Shift { Flat, Sharp };
@@ -69,4 +70,16 @@ function baseNoteName(note: Note, shift: Shift):BaseNoteName {
 export function getScaleShift(scale: Scale): Shift {
     var seenBases = new Set<BaseNoteName>(scale.map(n => baseNoteName(n, Shift.Flat)));
     return seenBases.size === new Set(scale).size ? Shift.Flat : Shift.Sharp;
+}
+
+
+export function spellScale(scale: Scale): SpelledScale {
+    // Naive implementaion of spellScale.
+    //
+    // A better algorithm would produce all the spellings for a given scale and from there
+    // figure out the cost of each spelling and return the lowest cost ones.
+    const shift = getScaleShift(scale);
+    const spelledScale = scale.map(n => noteToDisplay(n, shift));
+
+    return spelledScale;
 }
