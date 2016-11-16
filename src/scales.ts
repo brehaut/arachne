@@ -55,4 +55,3 @@ export function scale(root: Note, series: ScaleSeries):Scale {
     return scale;
 }
 
-

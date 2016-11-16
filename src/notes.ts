@@ -1,4 +1,4 @@
-import { rotate } from './array';
+import { rotate, cycleGet } from './array';
 
 // Notes are the unique names of each note within a twelve tone scale, 
 // without having to take into account whether we want to refer to them as
@@ -31,3 +31,10 @@ export const twelveTones:Note[] = ["A", "AB", "B", "C", "CD", "D", "DE", "E", "F
 export const toneIndex:{[index:string]: number} = {}
 twelveTones.forEach((tone, idx) => toneIndex[tone] = idx);
 
+
+
+export function relativeNote(note: Note, offset: number):Note {
+    const baseIndex = toneIndex[note];
+
+    return cycleGet(twelveTones, baseIndex + offset);
+}

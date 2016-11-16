@@ -2,7 +2,9 @@ export function cycleGet<T>(array:T[], index: number):T {
     if (index >= 0) {
         return array[index % array.length];
     }
-    return array[array.length - (index % array.length)];
+
+    // index is negative (including after mod, so adding it subtracts it from length);
+    return array[array.length + (index % array.length)];
 }
 
 

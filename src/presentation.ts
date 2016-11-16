@@ -1,14 +1,14 @@
-import { Note, isWhite, WhiteNote } from './notes';
+import { Note, isWhite, WhiteNote, relativeNote } from './notes';
 import { Scale } from './scales';
 
 // DisplayNotes are all the possible human readible versions of the above notes.     
 // Converting between Note and DisplayNote requires knowing which direction a given
 // key choses for naming  
-export type DisplayNote = "Ab" | "A" | "A#" | "Bb" | "B" | "C" | "C#" | "Db" | "D" | "D#" | "Eb" | "E" | "F" | "F#" | "Gb" | "G" | "G#";
+export type DisplayNote = "Ab" | "A" | "A#" | "Bb" | "B" | "B#" | "Cb" | "C" | "C#" | "Db" | "D" | "D#" | "Eb" | "E" | "E#" | "Fb" | "F" | "F#" | "Gb" | "G" | "G#";
 export type SpelledScale = DisplayNote[];
 
 // The Shift is used to determine if a scale is described in terms of flats or sharps 
-export enum Shift { Flat, Sharp };
+export enum Shift { Flat = -1, Sharp = 1};
 
 const toneNames:{[index:string]: [DisplayNote, DisplayNote]} = {
     "AB": ["A#", "Bb"],
@@ -82,4 +82,86 @@ export function spellScale(scale: Scale): SpelledScale {
     const spelledScale = scale.map(n => noteToDisplay(n, shift));
 
     return spelledScale;
+}
+
+
+
+
+function noteSpellings(note: Note, shift: Shift): DisplayNote[] {
+    if (isWhite(note)) {
+        const adjacent = relativeNote(note, -1 * shift);
+        if (isWhite(adjacent)) {
+            return [note, (adjacent + (shift === Shift.Flat ? "b" : "#")) as DisplayNote];
+        }
+        else {
+            return [note];
+        }
+    }
+    else { 
+        return [noteToDisplay(note, shift)];
+    }    
+}
+
+
+function combine<T>(arr:T[][]): T[][] {
+    let res = [[]] as T[][];
+
+    for (let i = 0; i < arr.length; i++) {
+        const choices = arr[i];
+        const lastRes = res;
+
+        res = [];
+        lastRes.forEach(acc => {
+            choices.forEach(choice => {
+                const l = acc.slice();
+                l.push(choice);
+                res.push(l);
+            });
+        });
+    }
+
+    return res;
+}
+
+
+function priceScaleSpelling(scale: SpelledScale): number {
+    let sum = 0;
+    for (var i = 0; i < scale.length; i++) {
+        const note = scale[0];
+        if (note.length === 1) continue;
+
+        const letter = note[0];
+        const shift = note[1];
+
+        if (shift === "#" && (letter === "B" || letter === "E")
+         || shift === "b" && (letter === "C" || letter === "F")) {
+            sum += 1.5;
+        }
+        else {
+            sum += 1;
+        }        
+    } 
+
+    return sum;
+}
+
+
+export function spellScale2(scale: Scale): SpelledScale {
+    const shifts = [Shift.Flat, Shift.Sharp];
+
+    const spellingsByShift = shifts.map(shift => scale.map(note => noteSpellings(note, shift))).map(combine);
+    const spellings = Array.prototype.concat.apply([], spellingsByShift);
+
+    let cheapest = [];
+    let minCost = Number.MAX_SAFE_INTEGER;
+
+    spellings.forEach(spelling => {
+        const cost = priceScaleSpelling(spelling);
+        if (cost < minCost) {
+            minCost = cost;
+            cheapest = spelling;
+        }
+    })
+
+    return cheapest as SpelledScale;
 }
