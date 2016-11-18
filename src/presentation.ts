@@ -1,6 +1,6 @@
 import { Note, isWhite, WhiteNote, relativeNote } from './notes';
 import { Scale } from './scales';
-import { distribution } from './array'; 
+import { distribution, rotate } from './array'; 
 
 
 // DisplayNotes are all the possible human readible versions of the above notes.     
@@ -117,18 +117,18 @@ function combine<T>(arr:T[][]): T[][] {
 function priceScaleSpelling(scale: SpelledScale): number {
     let sum = 0;
     for (var i = 0; i < scale.length; i++) {
-        const note = scale[0];
+        const note = scale[i];
         if (note.length === 1) continue;
 
-        const letter = note[0];
+        const letter = note[0].toUpperCase();
         const shift = note[1];
 
         if ((shift === "#" && (letter === "B" || letter === "E"))
          || (shift === "b" && (letter === "C" || letter === "F"))) {
-            sum += 2;
+            sum += 16;
         }
         else {
-            sum += 1;
+            sum += 10;
         }        
     } 
 
@@ -143,19 +143,20 @@ export function spellScale(scale: Scale): SpelledScale[] {
     const shifts = [Shift.Flat, Shift.Sharp];
 
     const spellingsByShift = shifts.map(shift => scale.map(note => noteSpellings(note, shift))).map(combine);
-    const spellings = Array.prototype.concat.apply([], spellingsByShift); // flatten
+    const spellings = Array.prototype.concat.apply([], spellingsByShift) as SpelledScale[]; // flatten
     
 
-    let cheapest = [[]];
+    let cheapest = [[]] as SpelledScale[];
     let minCost = Number.MAX_SAFE_INTEGER;
 
     spellings
-        .filter(scale => {
+        .filter((scale:SpelledScale) => {
             const dist = distribution(scale, n => n[0]);
             return Array.from(dist.values()).reduce((acc, v) => acc && v === 1, true);
         })
         .forEach(spelling => {
         const cost = priceScaleSpelling(spelling);
+
         if (cost < minCost) {
             minCost = cost;
             cheapest = [spelling];
@@ -167,3 +168,5 @@ export function spellScale(scale: Scale): SpelledScale[] {
 
     return cheapest as SpelledScale[];
 }
+
+
