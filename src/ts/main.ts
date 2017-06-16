@@ -11,9 +11,14 @@ scales.chromatic("A").forEach(element => {
 
 function awaitContentLoaded() {
     return new Promise((resolve, reject) => {
-        document.addEventListener("DOMContentLoaded", ({}) => {
+        if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", ({}) => {
+                resolve(undefined);
+            })
+        }
+        else {
             resolve(undefined);
-        })
+        }
     });
 }
 

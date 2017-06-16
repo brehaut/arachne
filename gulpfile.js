@@ -40,9 +40,21 @@ gulp.task('clean', [], () =>
     gulp.src(["build/**/*", "dist/**/*"]).pipe(rm())
 );
 
+
 gulp.task('tsc', [], () => {
     return buildTypescript(['src/ts/**/*.ts', 'src/ts/**/*.tsx']);
 })
+
+gulp.task('less', function () {
+  return gulp.src('./src/less/style.less')
+    .pipe(less({
+      paths: [ path.join(__dirname, 'src', 'less', 'includes') ]
+    }))
+    .pipe(gulp.dest(BUILD_PATH));
+});
+
+gulp.task('build', ['less', 'tsc']);
+
 
 gulp.task('bundle', [], () => {
     const entry = `${BUILD_PATH}/main.js`;
@@ -59,13 +71,14 @@ gulp.task('bundle', [], () => {
                 }
             }))
             .pipe(gulp.dest(DIST_PATH)),
-        copy("src/html/index.html", DIST_PATH)
+        copy("src/html/index.html", DIST_PATH),
+        copy(`${BUILD_PATH}/style.css`, DIST_PATH)
     ]);
 })
 
 gulp.task('default', (cb) => {
     runSequence('clean',
-                'tsc',
+                'build',
                 'bundle',
                 cb);
 });
@@ -73,5 +86,5 @@ gulp.task('default', (cb) => {
 
 
 gulp.task('watch', [], cb => {
-    runSequence('tsc', 'bundle', cb);
+    runSequence('build', 'bundle', cb);
 });
