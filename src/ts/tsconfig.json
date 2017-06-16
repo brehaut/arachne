@@ -8,6 +8,7 @@
         "noImplicitUseStrict": true,
         "noImplicitAny": false,
         "moduleResolution": "node",
-        "module": "commonjs"    
+        "module": "commonjs"   ,
+        "strict": true
     }
 }
