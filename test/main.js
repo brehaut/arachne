@@ -6,9 +6,9 @@ const property = jsc.property;
 const assert = jsc.assert;
 
 
-var notes = require('../build/notes');
-var scales = require('../build/scales');
-var presentation = require('../build/presentation');
+var notes = require('../build/common/notes');
+var scales = require('../build/common/scales');
+var presentation = require('../build/common/presentation');
 
 function pad(s) {
     return s.length === 1 ? s + " " : s;

@@ -57,20 +57,25 @@ gulp.task('build', ['less', 'tsc']);
 
 
 gulp.task('bundle', [], () => {
-    const entry = `${BUILD_PATH}/main.js`;
-  
+    const mainEntry = `${BUILD_PATH}/ui/main.js`;
+    const workerEntry = `${BUILD_PATH}/workers/main.js`;
+
     function copy(src, dest) {
         return gulp.src(src).pipe(gulp.dest(dest));
     }
 
-    return merge([
-        gulp.src(entry)
+    function bundleScript(entry, dest) {
+        return gulp.src(entry)
             .pipe(webpack({
                 output: {
-                    filename: "main.js"
+                    filename: dest
                 }
             }))
-            .pipe(gulp.dest(DIST_PATH)),
+            .pipe(gulp.dest(DIST_PATH))
+    }
+
+    return merge([
+        bundleScript(mainEntry, "main.js"),
         copy("src/html/index.html", DIST_PATH),
         copy(`${BUILD_PATH}/style.css`, DIST_PATH)
     ]);

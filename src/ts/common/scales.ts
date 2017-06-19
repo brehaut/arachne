@@ -3,15 +3,15 @@ import { twelveTones, toneIndex, Note } from './notes';
 
 export type Scale = Note[];
 
-enum Interval {
+export enum PrimativeInterval {
     Semitone = 1, 
     Tone = 2,
 }
 
-export type ScaleSeries = Interval[]; 
+export type ScaleSeries = PrimativeInterval[]; 
 
 export namespace scaleSeries {
-    export const major:ScaleSeries = [Interval.Tone, Interval.Tone, Interval.Semitone, Interval.Tone, Interval.Tone, Interval.Tone, Interval.Semitone];
+    export const major:ScaleSeries = [PrimativeInterval.Tone, PrimativeInterval.Tone, PrimativeInterval.Semitone, PrimativeInterval.Tone, PrimativeInterval.Tone, PrimativeInterval.Tone, PrimativeInterval.Semitone];
 
     export const ionian:ScaleSeries = major;
     export const dorian:ScaleSeries = rotate(major, 1);
