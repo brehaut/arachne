@@ -13,6 +13,10 @@ var runSequence = require('run-sequence');
 const BUILD_PATH = "build/";
 const DIST_PATH = "dist/";
 
+function resolve() {
+    return path.resolve(path.join.apply(path, arguments));
+}
+
 
 var typescriptProject = ts({
     noImplicitAny: false,
@@ -37,16 +41,16 @@ function buildTypescript(sources) {
 
 
 gulp.task('clean', [], () => 
-    gulp.src(["build/**/*", "dist/**/*"]).pipe(rm())
+    gulp.src([resolve(BUILD_PATH, "/**/*"), resolve(DIST_PATH, "/**/*")]).pipe(rm())
 );
 
 
 gulp.task('tsc', [], () => {
-    return buildTypescript(['src/ts/**/*.ts', 'src/ts/**/*.tsx']);
+    return buildTypescript([resolve('src/ts/**/*.ts'), resolve('src/ts/**/*.tsx')]);
 })
 
 gulp.task('less', function () {
-  return gulp.src('./src/less/style.less')
+  return gulp.src(resolve('src/less/style.less'))
     .pipe(less({
       paths: [ path.join(__dirname, 'src', 'less', 'includes') ]
     }))
@@ -66,9 +70,9 @@ gulp.task('bundle', [], () => {
 
     function bundleScript(entry, dest) {
         return gulp.src(entry)
-            .pipe(webpack({
+            .pipe(webpack({                
                 output: {
-                    filename: dest
+                    filename: dest,                    
                 }
             }))
             .pipe(gulp.dest(DIST_PATH))
@@ -76,8 +80,9 @@ gulp.task('bundle', [], () => {
 
     return merge([
         bundleScript(mainEntry, "main.js"),
+        bundleScript(workerEntry, "worker.js"),
         copy("src/html/index.html", DIST_PATH),
-        copy(`${BUILD_PATH}/style.css`, DIST_PATH)
+        copy(resolve(BUILD_PATH, "style.css"), DIST_PATH)
     ]);
 })
 
