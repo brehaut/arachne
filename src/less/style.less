@@ -1,31 +1,19 @@
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 
-    // http://lea.verou.me/css3patterns/#japanese-cube
-    @light: #99a;
-    @medium: #556;
-    @dark: #445;
+    @medium: #fafafa;
     background-color:@medium;
-    background-image: linear-gradient(30deg, @dark 12%, transparent 12.5%, transparent 87%, @dark 87.5%, @dark),
-    linear-gradient(150deg, @dark 12%, transparent 12.5%, transparent 87%, @dark 87.5%, @dark),
-    linear-gradient(30deg, @dark 12%, transparent 12.5%, transparent 87%, @dark 87.5%, @dark),
-    linear-gradient(150deg, @dark 12%, transparent 12.5%, transparent 87%, @dark 87.5%, @dark),
-    linear-gradient(60deg, @light 25%, transparent 25.5%, transparent 75%, @light 75%, @light), 
-    linear-gradient(60deg, @light 25%, transparent 25.5%, transparent 75%, @light 75%, @light);
-    background-size:80px 140px;
-    background-position: 0 0, 0 0, 40px 70px, 40px 70px, 0 0, 40px 70px;
+
 }
 
 .arachne {
     position: fixed;
-    top: 1em;
-    left: 1em;
-    right: 1em;
-    bottom: 1em;
-
-    background: rgba(255,255,255,0.98);
-    border-radius: 0.25em;
-    border: 1px solid #ccc;
-    padding: 1em 2em;
-    box-shadow: 0 3px 6px rgba(0,0,0,0.5);
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;   
+    padding: 1em; 
+    display: flex;
 }
+
+@import "tester/main-frame.less";
