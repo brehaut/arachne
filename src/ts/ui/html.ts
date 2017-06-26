@@ -26,32 +26,41 @@ module arachne.ui.html {
                        | TokenType.Text
                        ;
 
-    type LexerToken = {type: TokenWithoutText, start: number}
-                    | {type: TokenWithText, start: number, text: string}
-                    | {type: TokenType.Interpolation, start:number, interpolation: any}
+    interface LexerPosition {
+        line: number;
+        character: number;
+    }
+
+    type LexerToken = {type: TokenWithoutText, start: LexerPosition}
+                    | {type: TokenWithText, start: LexerPosition, text: string}
+                    | {type: TokenType.Interpolation, start:LexerPosition, interpolation: any}
                     ;
 
     type Lexable = string 
                  | {interpolation: any}
                  ;
 
-    interface LexerPosition {
-        line: number;
-        character: number;
+    function isInterpolable(l:Lexable): l is {interpolation: any} {
+        return (typeof l === "object" && "interpolation" in l);
     }
 
+
     export class Lexer {
+        private input: string[]
         private index = 0;
+        private segment = 0;
+
         private inTag = false;
         private position:LexerPosition = {line: 1, character: 1};
 
-        constructor(private input: string) {
-
+        constructor(input: string | string[]) {
+            this.input = typeof input === "string" ? [input] : input;
         }
 
         // methods to consume the input
-        private currentLexable(): Lexable {
-            return this.input.charAt(this.index);
+        private currentLexable(): Lexable | undefined {
+            if (this.segment >= this.input.length) return undefined;
+            return this.input[this.segment].charAt(this.index);
         }
 
         private currentPosition(): LexerPosition {
@@ -63,147 +72,164 @@ module arachne.ui.html {
             return this.currentPosition();
         }
 
-        private consumeOne(): Lexable {
+        private consumeOne(): Lexable|undefined {
             this.index += 1;
-            this.position.character += 1;
+            if (this.index >= this.input[this.segment].length) {
+                this.index = 0;
+                this.segment += 1;
+            }
+
+            if (this.currentLexable() === "\n") {
+                this.position.line += 1
+                this.position.character = 0;
+            }
+            else {
+                this.position.character += 1;
+            }
             return this.currentLexable();
         }
 
+        private isEndOfSegment(): boolean {
+            return this.index >= this.input[this.segment].length;
+        }
+
         private isEndOfInput(): boolean {
-            return this.index >= this.input.length;
+            return this.segment >= this.input.length || this.index >= this.input[this.segment].length;
         }
 
-        private findSpan(idx: number, until: RegExp) {
-            let extent = 1;
-            while (idx + extent < this.input.length) {
-                if (this.input[idx + extent].match(until)) return extent;
-                extent += 1;
-            }
-
-            return extent;
-        }
-
-        // this implementation will replace findSpan so that the internal tracking of character 
-        // position is abstracted away from lexing rules
-        private findSpan2(until: RegExp): [Lexable, LexerPosition] {
+        private findSpan(until: RegExp): Lexable {
             const start = this.index;
-            const pos = this.currentPosition();
 
-            while (!this.isEndOfInput()) {
+            while (!(this.isEndOfSegment() || this.isEndOfInput())) {
                 const lexable = this.consumeOne();
                 if (typeof lexable === "object" && "interpolation" in lexable) {
-                    return [lexable, pos];
+                    return lexable;
                 }
                 if (typeof lexable === "string" && lexable.match(until)) {
-                    return [this.input.slice(start, this.index), pos];
+                    return this.input[this.segment].slice(start, this.index);
                 }
             }
 
-            return [this.input.slice(start, this.index), pos];
+            return this.input[this.segment].slice(start, this.index);
         }
 
 
         private consumeWhitespace() {
-            const ch = this.currentLexable();
-            if (ch === " " || ch === "\t" || ch === "\n" || ch === "\r") {
-                if (ch === "\n") {
-                    this.newLine();
+            while (!this.isEndOfInput()) {
+                const ch = this.currentLexable();
+
+                if (typeof ch === "string" && ch.match(/\s/)) {
+                    this.consumeOne();
                 }
-                this.findSpan2(/\S/); // bug here: it will not advance the line numbers correctly if new lines are inthe midst of whitespace
+                else {
+                    return;
+                }
             }
         }
 
         // generate tokens
-        private token(t: TokenWithoutText, start: number, extent: number): LexerToken {
+        private token(t: TokenWithoutText, start: LexerPosition): LexerToken {
             return {type:t, start: start};
         }
 
-        private tokenWithText(t: TokenWithText, start: number, extent: number): LexerToken {
-            return {type:t, text: this.input.slice(start, start + extent), start: start};
+        private tokenWithText(t: TokenWithText, text: string, start: LexerPosition): LexerToken {
+            return {type:t, text: text, start: start};
         }
 
-        private token2(t: TokenWithoutText, start: LexerPosition): LexerToken {
-            return {type:t, start: start.character};
-        }
-
-        private tokenWithText2(t: TokenWithText, text: string, start: LexerPosition): LexerToken {
-            return {type:t, text: text, start: start.character};
+        private tokenWithInterpolation(content: {interpolation: any}, start: LexerPosition): LexerToken {
+            return {type: TokenType.Interpolation, start: start, interpolation: content};
         }
 
         // get the next token
         public next(): LexerToken {
-            let idx = this.index;
-            if (this.isEndOfInput()) return { type: TokenType.EOI, start: this.index};
+            let pos = this.currentPosition();
 
-            let ch = this.currentLexable();
+            if (this.isEndOfInput()) return { type: TokenType.EOI, start: pos};
 
-            if (typeof ch === "object" && "interpolation" in ch) {
-                return {type: TokenType.Interpolation, start: idx, interpolation: ch.interpolation};
+            let ch = this.currentLexable()!;
+
+            if (isInterpolable(ch)) {
+                return this.tokenWithInterpolation(ch, pos);
             }
 
             if (this.inTag) {
                 // consume whitespace
                 this.consumeWhitespace();
-                ch = this.currentLexable();
+                ch = this.currentLexable()!;
 
                 const intialIdx = this.index;
                 // consume a closing angle and switch mode to not in a tag.
                 if (ch === ">") {
                     this.inTag = false;
-                    this.index += 1
-                    return this.token(TokenType.UnAngle, intialIdx, 1);
+                    this.consumeOne();
+                    return this.token(TokenType.UnAngle, pos);
                 }                
 
                 if (ch === "/") {
-                    this.index += 1
-                    return this.token(TokenType.Slash, intialIdx, 1);
+                    this.consumeOne();
+                    return this.token(TokenType.Slash, pos);
                 }     
 
                 if (ch === "=") {
-                    this.index += 1
-                    return this.token(TokenType.Equals, intialIdx, 1);
+                    this.consumeOne();
+                    return this.token(TokenType.Equals, pos);
                 }                
 
                 // consume both styles of quotes
                 if (ch === "\"") {
-                    this.index += 1;
-                    const extent = this.findSpan(this.index, /["]/);
-                    this.index += extent;
-                    return this.tokenWithText(TokenType.Atom, intialIdx, extent + 1);
+                    this.consumeOne();
+                    const content = this.findSpan(/["]/);
+                    this.consumeOne();
+
+                    if (isInterpolable(content)) {
+                        return this.tokenWithInterpolation(content, pos);
+                    }
+                    return this.tokenWithText(TokenType.Atom, content, pos);
                 }
 
                 if (ch === "\'") {
-                    this.index += 1;
-                    const extent = this.findSpan(intialIdx, /[']/);
-                    this.index += extent;
-                    return this.tokenWithText(TokenType.Quoted, intialIdx, extent + 1);
+                    this.consumeOne();
+                    const content = this.findSpan(/[']/);
+                    this.consumeOne();
+
+                    if (isInterpolable(content)) {
+                        return this.tokenWithInterpolation(content, pos);
+                    }
+                    return this.tokenWithText(TokenType.Quoted, content, pos);
                 }
                 
                 // consume an atom
-                let extent = this.findSpan(intialIdx, /[>'"&\s=/]/);
-                this.index += extent;
-                return this.tokenWithText(TokenType.Atom, intialIdx, extent);
+                let content = this.findSpan(/[>'"&\s=/]/);
+                if (isInterpolable(content)) {
+                    return this.tokenWithInterpolation(content, pos);
+                }
+                return this.tokenWithText(TokenType.Atom, content, pos);
             }
+            // not inside a tag
             else {
-                const intialIdx = this.index;
-
                 if (ch === "<") {
                     this.inTag = true;
-                    this.index += 1;
-                    return this.token(TokenType.Angle, intialIdx, 1);
+                    this.consumeOne();
+                    return this.token(TokenType.Angle, pos);
                 }
                 else if (ch === "&") {
-                    this.index += 1;
+                    this.consumeOne();
 
-                    let extent = this.findSpan(this.index, /[;]/); 
-                    this.index += extent;
-                    return this.tokenWithText(TokenType.Entity, intialIdx, extent);
+                    const content = this.findSpan(/[;]/); 
+                    if (isInterpolable(content)) {
+                        throw new ParserError(`Unexpected interpolation within entity token at line ${pos.line}, character ${pos.character}.`)
+                    }
+                    this.consumeOne();
+                    return this.tokenWithText(TokenType.Entity, content, pos);
                 }
 
-                let extent = this.findSpan(this.index, /[<&]/);                
-                this.index += extent;
+                const content = this.findSpan(/[<&]/);      
+
+                if (isInterpolable(content)) {
+                    return this.tokenWithInterpolation(content, pos);
+                }          
                  
-                return this.tokenWithText(TokenType.Text, intialIdx, extent);
+                return this.tokenWithText(TokenType.Text, content, pos);
             }
         }
 
@@ -257,7 +283,7 @@ module arachne.ui.html {
                 }
             }
 
-            throw new ParserError(`Unexpected token ${TokenType[t.type]} at position ${t.start}. Expected one of ${tokenTypes.map(t => TokenType[t]).join(", ")}`);
+            throw new ParserError(`Unexpected token ${TokenType[t.type]} at line ${t.start.line}, character ${t.start.character}. Expected one of ${tokenTypes.map(t => TokenType[t]).join(", ")}`);
         }
 
         private getCurrentToken(): LexerToken {
@@ -285,7 +311,7 @@ module arachne.ui.html {
                     fragments.push(this.consumeElement());                    
                 }
                 else {
-                    throw new ParserError(`Unexpected token ${TokenType[t.type]} at position ${t.start}.`);
+                    throw new ParserError(`Unexpected token ${TokenType[t.type]} at line ${t.start.line}, character ${t.start.character}.`);
                 }
             }
 
@@ -328,7 +354,7 @@ module arachne.ui.html {
                     children.push(this.consumeElement());                    
                 }
                 else {
-                    throw new ParserError(`Unexpected token ${TokenType[t.type]} at position ${t.start}.`);
+                    throw new ParserError(`Unexpected token ${TokenType[t.type]} at line ${t.start.line}, character ${t.start.character}.`);
                 }
             }
         }
@@ -340,7 +366,7 @@ module arachne.ui.html {
             t = this.matchAndConsume(TokenType.Angle);
             
             if (t.type !== TokenType.Atom) {
-                throw new ParserError(`Unexpected token ${TokenType[t.type]} at position ${t.start}. Expected a tagname.`);
+                throw new ParserError(`Unexpected token ${TokenType[t.type]} at line ${t.start.line}, character ${t.start.character}. Expected a tagname.`);
             }
             const tagname = t.text;
 
@@ -359,30 +385,30 @@ module arachne.ui.html {
 
                 if (la.type === TokenType.Equals) {
                     if (t.type !== TokenType.Atom) {
-                        throw new ParserError(`Unexpected token ${TokenType[t.type]} at position ${t.start}. Expected an attribute name.`);
+                        throw new ParserError(`Unexpected token ${TokenType[t.type]} at line ${t.start.line}, character ${t.start.character}. Expected an attribute name.`);
                     }
                     const attrName = t.text;
 
                     if (attributes.hasOwnProperty(attrName)) {
-                        throw new ParserError(`Duplicate attribute name '${attrName}' at position ${t.start}.`);
+                        throw new ParserError(`Duplicate attribute name '${attrName}' at line ${t.start.line}, character ${t.start.character}.`);
                     }
 
                     t = this.consumeOne();
                     t = this.consumeOne();
                     
                     if (t.type !== TokenType.Atom && t.type !== TokenType.Quoted) {
-                        throw new ParserError(`Unexpected token ${TokenType[t.type]} at position ${t.start}. Expected an attribute value.`);
+                        throw new ParserError(`Unexpected token ${TokenType[t.type]} at line ${t.start.line}, character ${t.start.character}. Expected an attribute value.`);
                     }
                     
                     attributes[attrName] = t.text;                     
                 }
                 else {
                     if (t.type !== TokenType.Atom) {
-                        throw new ParserError(`Unexpected token ${TokenType[t.type]} at position ${t.start}. Expected an attribute name`);
+                        throw new ParserError(`Unexpected token ${TokenType[t.type]} at line ${t.start.line}, character ${t.start.character}. Expected an attribute name`);
                     }
 
                     if (attributes.hasOwnProperty(t.text)) {
-                        throw new ParserError(`Duplicate attribute name '${t.text}' at position ${t.start}.`);
+                        throw new ParserError(`Duplicate attribute name '${t.text}' at line ${t.start.line}, character ${t.start.character}.`);
                     }
 
                     attributes[t.text] = t.text;                     
@@ -403,12 +429,12 @@ module arachne.ui.html {
             const t = this.matchAndConsume(TokenType.Slash);
 
             if (t.type !== TokenType.Atom) {
-                throw new ParserError(`Unexpected token ${TokenType[t.type]} at position ${t.start}. Expected a tagname.`);
+                throw new ParserError(`Unexpected token ${TokenType[t.type]} at line ${t.start.line}, character ${t.start.character}. Expected a tagname.`);
             }
 
             const tagname = t.text;
             if (tagname.toLowerCase() !== expectedTagname.toLowerCase()) {
-                throw new ParserError(`Unexpected closing tag ${tagname} at ${t.start}. Expected ${expectedTagname}.`);
+                throw new ParserError(`Unexpected closing tag ${tagname} at line ${t.start.line}, character ${t.start.character}. Expected ${expectedTagname}.`);
             }
 
             this.consumeOne();
