@@ -29,7 +29,8 @@ var typescriptProject = ts({
     moduleResolution: "node",
     module: "commonjs",
     sourceMap: true,
-    strict: true
+    strict: true,
+    "downlevelIteration": true
 });
 
 

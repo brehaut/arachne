@@ -31,9 +31,13 @@ module arachne.ui.html {
         character: number;
     }
 
-    type LexerToken = {type: TokenWithoutText, start: LexerPosition}
-                    | {type: TokenWithText, start: LexerPosition, text: string}
-                    | {type: TokenType.Interpolation, start:LexerPosition, interpolation: any}
+    type LexerTokenWithoutText = {type: TokenWithoutText, start: LexerPosition};
+    type LexerTokenWithText = {type: TokenWithText, start: LexerPosition, text: string};
+    type LexerTokenWithInterpolation = {type: TokenType.Interpolation, start:LexerPosition, interpolation: any};
+
+    type LexerToken = LexerTokenWithoutText
+                    | LexerTokenWithText
+                    | LexerTokenWithInterpolation
                     ;
 
     type Lexable = string 
@@ -56,16 +60,16 @@ module arachne.ui.html {
         }
     }
 
-    function* stringSegmentsStream(strings: string[], interpolations: any[]): IterableIterator<string> {
+    function* stringSegmentsStream(strings: string[], interpolations: any[]): IterableIterator<Lexable> {
         for (const [s, i] of pairwise(strings, interpolations)) {
             if (s) yield* stringStream(s);
-            if (i) yield i;
+            if (i) yield {interpolation: i};
         }
     }
 
 
     export class Lexer {
-        private readonly input: IterableIterator<string>
+        private readonly input: IterableIterator<Lexable>
 
         private current: IteratorResult<Lexable>;
         private inTag = false;
@@ -103,7 +107,7 @@ module arachne.ui.html {
             return this.current.done;
         }
 
-        private findSpan(until: RegExp): Lexable {
+        private findSpan(until: RegExp): string {
             const span:string[] = [];
 
             const slice = () => {
@@ -152,7 +156,7 @@ module arachne.ui.html {
         }
 
         private tokenWithInterpolation(content: {interpolation: any}, start: LexerPosition): LexerToken {
-            return {type: TokenType.Interpolation, start: start, interpolation: content};
+            return {type: TokenType.Interpolation, start: start, interpolation: content.interpolation};
         }
 
         // get the next token
@@ -162,6 +166,7 @@ module arachne.ui.html {
             let ch = this.currentLexable()!;
 
             if (isInterpolable(ch)) {
+                this.consumeOne();
                 return this.tokenWithInterpolation(ch, this.currentPosition());
             }
 
@@ -214,17 +219,17 @@ module arachne.ui.html {
                 const content = this.findSpan(/[']/);
                 this.consumeOne();
 
-                if (isInterpolable(content)) {
-                    return this.tokenWithInterpolation(content, pos);
-                }
                 return this.tokenWithText(TokenType.Quoted, content, pos);
             }
             
+            // consume an interpolatable
+            if (isInterpolable(ch)) {
+                this.consumeOne();
+                return this.tokenWithInterpolation(ch, pos);
+            }
+
             // consume an atom
             let content = this.findSpan(/[>'"&\s=/]/);
-            if (isInterpolable(content)) {
-                return this.tokenWithInterpolation(content, pos);
-            }
             return this.tokenWithText(TokenType.Atom, content, pos);
         }
 
@@ -239,20 +244,18 @@ module arachne.ui.html {
             }
             else if (ch === "&") {
                 this.consumeOne();
-
                 const content = this.findSpan(/[;]/); 
-                if (isInterpolable(content)) {
-                    throw new ParserError(`Unexpected interpolation within entity token at line ${pos.line}, character ${pos.character}.`)
-                }
                 this.consumeOne();
+                
                 return this.tokenWithText(TokenType.Entity, content, pos);
+            }
+            else if (isInterpolable(ch)) {
+                this.consumeOne();
+                return this.tokenWithInterpolation(ch, pos);
             }
 
             const content = this.findSpan(/[<&]/);      
-
-            if (isInterpolable(content)) {
-                return this.tokenWithInterpolation(content, pos);
-            }                           
+                        
             return this.tokenWithText(TokenType.Text, content, pos);
         }
     }
@@ -260,8 +263,9 @@ module arachne.ui.html {
     export function debugLexer(l: Lexer) {
         let t: LexerToken | undefined;
         t = l.next();
-        while (t && t.type != TokenType.EOI) {
-            console.log(TokenType[t.type], `"${(t as any).text}"`, `"${(t as any).interpolation}"`);
+        let limit = 2000;
+        while (limit-- > 0 && t && t.type != TokenType.EOI) {
+            console.log(TokenType[t.type], !!t ? `"${(t as any).text}"` : "", `${JSON.stringify((t as any).interpolation)}`);
             t = l.next();
         }
     }
@@ -325,6 +329,13 @@ module arachne.ui.html {
             return this.lookaheadToken;
         }
 
+        private getTextOrFlatten(t: LexerTokenWithText | LexerTokenWithInterpolation): string {
+            if (t.type === TokenType.Interpolation) {
+                return typeof t.interpolation === "function" || t.interpolation instanceof Function ? t.interpolation() : t.interpolation.toString()
+            }  
+            return t.text.toString();
+        }
+
         private parse(): Fragment {
             const fragments: Fragment = [];
 
@@ -373,8 +384,8 @@ module arachne.ui.html {
                     return {tag: tagname, attributes: attributes, children: children};
                 }
 
-                if (t.type === TokenType.Text) {
-                    children.push(t.text);
+                if (t.type === TokenType.Text || t.type === TokenType.Interpolation) {
+                    children.push(this.getTextOrFlatten(t));
                     this.consumeOne();
                 }
                 else if (t.type === TokenType.Entity) {
@@ -415,10 +426,10 @@ module arachne.ui.html {
                 }
 
                 if (la.type === TokenType.Equals) {
-                    if (t.type !== TokenType.Atom) {
+                    if (t.type !== TokenType.Atom && t.type !== TokenType.Interpolation) {
                         throw new ParserError(`Unexpected token ${TokenType[t.type]} at line ${t.start.line}, character ${t.start.character}. Expected an attribute name.`);
                     }
-                    const attrName = t.text;
+                    const attrName = this.getTextOrFlatten(t);
 
                     if (attributes.hasOwnProperty(attrName)) {
                         throw new ParserError(`Duplicate attribute name '${attrName}' at line ${t.start.line}, character ${t.start.character}.`);
@@ -427,22 +438,24 @@ module arachne.ui.html {
                     t = this.consumeOne();
                     t = this.consumeOne();
                     
-                    if (t.type !== TokenType.Atom && t.type !== TokenType.Quoted) {
+                    if (t.type !== TokenType.Atom && t.type !== TokenType.Quoted && t.type !== TokenType.Interpolation) {
                         throw new ParserError(`Unexpected token ${TokenType[t.type]} at line ${t.start.line}, character ${t.start.character}. Expected an attribute value.`);
                     }
                     
-                    attributes[attrName] = t.text;                     
+                    attributes[attrName] = this.getTextOrFlatten(t);                     
                 }
                 else {
-                    if (t.type !== TokenType.Atom) {
+                    if (t.type !== TokenType.Atom && t.type !== TokenType.Interpolation) {
                         throw new ParserError(`Unexpected token ${TokenType[t.type]} at line ${t.start.line}, character ${t.start.character}. Expected an attribute name`);
                     }
 
-                    if (attributes.hasOwnProperty(t.text)) {
-                        throw new ParserError(`Duplicate attribute name '${t.text}' at line ${t.start.line}, character ${t.start.character}.`);
+                    const attrName = this.getTextOrFlatten(t);
+
+                    if (attributes.hasOwnProperty(attrName)) {
+                        throw new ParserError(`Duplicate attribute name '${attrName}' at line ${t.start.line}, character ${t.start.character}.`);
                     }
 
-                    attributes[t.text] = t.text;                     
+                    attributes[attrName] = attrName;                     
                 }
                 
                 t = this.consumeOne();
@@ -472,5 +485,10 @@ module arachne.ui.html {
 
             this.matchAndConsume(TokenType.UnAngle);
         }
+    }
+
+
+    export function template(text: string[], ...interpolations: any[]): Fragment {
+        return new Parser(new Lexer(text, interpolations)).getRoot();
     }
 }

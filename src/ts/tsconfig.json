@@ -9,6 +9,7 @@
         "noImplicitAny": false,
         "moduleResolution": "node",
         "module": "commonjs"   ,
-        "strict": true
+        "strict": true,
+        "downlevelIteration": true
     }
 }
