@@ -1,4 +1,4 @@
-module arachne.ui.html {
+export module arachne.ui.html {
 
     enum TokenType {
         Angle,
@@ -31,9 +31,28 @@ module arachne.ui.html {
         character: number;
     }
 
+    type AttributeInterpolationValue = string 
+                                     | number  
+                                     | boolean
+                                     | void
+                                     | { toString(): string }
+                                     | ((e: Event) => any)
+                                     ;
+
+    type NodeInterpolationValue = string 
+                                | number   
+                                | void
+                                | { toString(): string }
+                                | { toFragment(): Fragment }
+                                ;
+
+    type InterpolationValue = AttributeInterpolationValue 
+                            | NodeInterpolationValue
+                            ;
+
     type LexerTokenWithoutText = {type: TokenWithoutText, start: LexerPosition};
     type LexerTokenWithText = {type: TokenWithText, start: LexerPosition, text: string};
-    type LexerTokenWithInterpolation = {type: TokenType.Interpolation, start:LexerPosition, interpolation: any};
+    type LexerTokenWithInterpolation = {type: TokenType.Interpolation, start:LexerPosition, interpolation: InterpolationValue};
 
     type LexerToken = LexerTokenWithoutText
                     | LexerTokenWithText
@@ -67,11 +86,11 @@ module arachne.ui.html {
         }
     }
 
-
+    
     export class Lexer {
         private readonly input: IterableIterator<Lexable>
 
-        private current: IteratorResult<Lexable>;
+        private current!: IteratorResult<Lexable>;
         private inTag = false;
         private position:LexerPosition = {line: 1, character: 1};
 
@@ -85,7 +104,7 @@ module arachne.ui.html {
             return this.current.value;
         }
 
-        private currentPosition(): LexerPosition {
+        private currentPosition(): Readonly<LexerPosition> {
             return {line: this.position.line, character: this.position.character};
         }
 
@@ -247,7 +266,7 @@ module arachne.ui.html {
                 const content = this.findSpan(/[;]/); 
                 this.consumeOne();
                 
-                return this.tokenWithText(TokenType.Entity, content, pos);
+                return this.tokenWithText(TokenType.Entity, "&" + content + ";", pos);
             }
             else if (isInterpolable(ch)) {
                 this.consumeOne();
@@ -271,25 +290,25 @@ module arachne.ui.html {
     }
 
 
-    type Attributes = {[index:string]: string | number} 
+    export type Attributes = {[index:string]: string | number} 
                     | undefined
                     ;
 
-    interface Node {
-        tag: string;
-        attributes: Attributes;
-        children: Fragment | undefined;
+    export interface Node {
+        readonly tag: string;
+        readonly attributes: Readonly<Attributes>;
+        readonly children: Fragment | undefined;
     }
 
-    type Fragment = (Node | string)[];
+    export type Fragment = (Node | string)[];
 
     export class ParserError extends Error { }
 
     export class Parser {        
         private root: Fragment|undefined;
 
-        private currentToken:LexerToken;
-        private lookaheadToken:LexerToken;
+        private currentToken!:LexerToken;
+        private lookaheadToken!:LexerToken;
 
         constructor (private readonly lexer: Lexer) {
             this.consumeOne(); // prime lookahead
@@ -331,7 +350,13 @@ module arachne.ui.html {
 
         private getTextOrFlatten(t: LexerTokenWithText | LexerTokenWithInterpolation): string {
             if (t.type === TokenType.Interpolation) {
-                return typeof t.interpolation === "function" || t.interpolation instanceof Function ? t.interpolation() : t.interpolation.toString()
+                if (typeof t.interpolation === "function" || t.interpolation instanceof Function) {
+                    return t.interpolation();
+                }
+                else if (t.interpolation) {
+                    t.interpolation.toString();
+                }
+                return "";
             }  
             return t.text.toString();
         }
@@ -490,5 +515,41 @@ module arachne.ui.html {
 
     export function template(text: string[], ...interpolations: any[]): Fragment {
         return new Parser(new Lexer(text, interpolations)).getRoot();
+    }
+
+
+    function renderNode(n: Node):Element {
+        const el = document.createElement(n.tag);
+        
+        if (n.attributes) {
+            for (let k in n.attributes) if (n.attributes.hasOwnProperty(k)) {
+                el.setAttribute(k, n.attributes[k].toString());
+            }
+        }
+
+        if (n.children && n.children.length > 0) {
+            el.appendChild(render(n.children));
+        }
+
+        return el;
+    }
+
+    export function render(fs:Fragment):DocumentFragment {
+        const d = document.createDocumentFragment();
+
+        for (let f of fs) {
+            if (typeof f === "string") {
+                d.appendChild(document.createTextNode(f));
+            }
+            else {
+                d.appendChild(renderNode(f));
+            }
+        }
+
+        return d;
+    }
+
+    export function dom(text: string[], ...interpolations: any[]):DocumentFragment {
+        return render(template(text, ...interpolations));
     }
 }

@@ -2,7 +2,7 @@ import * as React from "react";
 import * as ReactDOM from "react-dom";
 
 
-class TrebleClef extends React.Component<{x: number, y: number, height: number}, void> {
+class TrebleClef extends React.Component<{x: number, y: number, height: number}> {
     private scale = 0.02222; // calculated by hand
 
     public render() {
@@ -23,7 +23,7 @@ class TrebleClef extends React.Component<{x: number, y: number, height: number},
 
 
 
-class BassClef extends React.Component<{x: number, y: number, height: number}, void> {
+class BassClef extends React.Component<{x: number, y: number, height: number}> {
     private scale = 0.02222; // calculated by hand
 
     public render() {
@@ -44,7 +44,7 @@ class BassClef extends React.Component<{x: number, y: number, height: number}, v
 
 
 
-class Stave extends React.Component<{}, void> {
+class Stave extends React.Component<{}> {
     public render() {
         const drawingHeight = 300;
         const drawingWidth = 1000;
@@ -63,7 +63,7 @@ class Stave extends React.Component<{}, void> {
 }
 
 
-class Application extends React.Component<{}, void> {
+class Application extends React.Component<{}> {
     public render() {
         return <div className="comp main-frame">
             <div className="question">
