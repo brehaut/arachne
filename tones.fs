@@ -26,13 +26,16 @@ type Tone =
 type ToneColor = Black | White
 
 // ToneColor provides the mapping of tones to colors.
-let noteColor (t:Tone) = function
+let noteColor = function
     | Tone.GA -> ToneColor.Black
     | Tone.AB -> ToneColor.Black
     | Tone.CD -> ToneColor.Black
     | Tone.DE -> ToneColor.Black
     | Tone.FG -> ToneColor.Black
     | _ -> ToneColor.White
+
+let (|White|Black|) (tone:Tone) = 
+    if noteColor tone = ToneColor.White then White tone else Black tone
 
 // This is an internal function used to make it easier to do interval 
 // arithmetic 
